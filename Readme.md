@@ -45,10 +45,11 @@ User → ALB Ingress → Kubernetes Service → Deployment Pods → 2048 Game Ap
 
 ```bash
 .
-├── deployment.yaml
-├── ingress.yaml
-├── namespace.yaml
-├── service.yaml
+├── kubernetes_file
+│   ├── deployment.yaml
+│   ├── ingress.yaml
+│   ├── namespace.yaml
+│   └── service.yaml
 └── README.md
 ```
 
@@ -120,7 +121,88 @@ Used for serverless execution of Kubernetes pods without managing EC2 worker nod
 
 ## ✅ AWS Load Balancer Controller
 
-Installed in the EKS cluster to automatically provision and manage AWS Application Load Balancers.
+The AWS Load Balancer Controller was manually installed and configured inside the EKS cluster to provision and manage AWS Application Load Balancers for Kubernetes Ingress resources.
+
+### Steps Performed
+
+#### Associate IAM OIDC Provider
+
+```bash
+eksctl utils associate-iam-oidc-provider \
+--region <region-name> \
+--cluster 2048-cluster \
+--approve
+```
+
+---
+
+#### Download IAM Policy
+
+```bash
+curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
+```
+
+---
+
+#### Create IAM Policy
+
+```bash
+aws iam create-policy \
+--policy-name AWSLoadBalancerControllerIAMPolicy \
+--policy-document file://iam_policy.json
+```
+
+---
+
+#### Create IAM Service Account
+
+```bash
+eksctl create iamserviceaccount \
+--cluster=2048-cluster \
+--namespace=kube-system \
+--name=aws-load-balancer-controller \
+--role-name AmazonEKSLoadBalancerControllerRole \
+--attach-policy-arn=arn:aws:iam::<account-id>:policy/AWSLoadBalancerControllerIAMPolicy \
+--approve
+```
+
+---
+
+#### Add EKS Helm Repository
+
+```bash
+helm repo add eks https://aws.github.io/eks-charts
+```
+
+---
+
+#### Update Helm Repository
+
+```bash
+helm repo update
+```
+
+---
+
+#### Install AWS Load Balancer Controller
+
+```bash
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+-n kube-system \
+--set clusterName=2048-cluster \
+--set serviceAccount.create=false \
+--set serviceAccount.name=aws-load-balancer-controller \
+--set region=<region-name> \
+--set vpcId=<vpc-id>
+```
+
+---
+
+#### Verify Controller Deployment
+
+```bash
+kubectl get deployment -n kube-system aws-load-balancer-controller
+```
 
 ---
 
@@ -205,7 +287,7 @@ kubectl get ingress -n <namespace>
 
 After successful deployment:
 
-1. AWS ALB gets automatically provisioned
+1. AWS ALB gets provisioned through the AWS Load Balancer Controller
 2. ALB DNS URL becomes available
 3. Open the ALB DNS in browser
 4. Access the 2048 Game Application
@@ -215,7 +297,7 @@ After successful deployment:
 # 📸 Project Screenshot
 
 ## 2048 Game Application
-<img width="1327" height="875" alt="WhatsApp Image 2026-05-18 at 03 21 55" src="https://github.com/user-attachments/assets/cece5497-f1f8-4ae2-a014-e80d8ea256ae" />
+<img width="1327" height="875" alt="WhatsApp Image 2026-05-18 at 03 21 55" src="https://github.com/user-attachments/assets/bb6c615b-dd4c-47a7-8837-ff6d82781619" />
 
 
 ---
@@ -258,6 +340,7 @@ IAM Roles and Policies were carefully attached to ensure secure interaction betw
 
 ## Dhruv Goel
 
-AWS | Cloud | DevOps Enthusiast
+Final Year B.Tech (AIML) Student  
+Cloud | DevOps Enthusiast
 
 ---
